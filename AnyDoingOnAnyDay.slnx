@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="AnyDoingOnAnyDay\AnyDoingOnAnyDay.csproj" />
+  <Project Path="AnyDoingOnAnyDayFramework\AnyDoingOnAnyDayFramework.csproj">
+    <BuildDependency Project="AnyDoingOnAnyDay\AnyDoingOnAnyDay.csproj" />
+  </Project>
+</Solution>
