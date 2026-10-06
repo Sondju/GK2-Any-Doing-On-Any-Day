@@ -1,56 +1,53 @@
 ﻿using GK2.FlowCanvasNodes;
 using HarmonyLib;
 using System;
+using System.Reflection;
 
 namespace AnyDoingOnAnyDay
 {
-    // --- НАДЁЖНЫЙ И ВЫВЕРЕННЫЙ ПАТЧ: ВОСКРЕШЕНИЕ В ЛЮБОЙ ДЕНЬ БЕЗ РЕФЛЕКСИИ ПОЛЕЙ 1.007 ---
+    // --- НАДЁЖНЫЙ И ВЫВЕРЕННЫЙ ПАТЧ: ВОСКРЕШЕНИЕ В ЛЮБОЙ ДЕНЬ БЕЗ РЕФЛЕКСИИ ПОЛЕЙ ---
     [HarmonyPatch(typeof(Flow_GetDayNumber), "<RegisterPorts>b__4_1")]
-    public class Flow_GetDayNumber_Resurrection_Patch
+    public class ResurrectionAnytimePatch
     {
         [HarmonyPrefix]
         public static bool Prefix(Flow_GetDayNumber __instance, ref bool __result)
         {
             if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value || !MainPlugin.Instance.ResurrectionAnytime.Value)
+            {
                 return true;
-
+            }
             try
             {
                 // 1. Безопасно вытаскиваем приватный playerController из синглтона MainGame через Harmony
-                var playerControllerField = AccessTools.Field(typeof(MainGame), "playerController");
-                var playerController = playerControllerField?.GetValue(MainGame.Instance) as PlayerController;
-
-                if (playerController != null)
+                FieldInfo fieldInfo = AccessTools.Field(typeof(MainGame), "playerController");
+                PlayerController playerController = ((fieldInfo != null) ? fieldInfo.GetValue(MainGame.Instance) : null) as PlayerController;
+                GameScene gameScene;
+                // Используем найденный официальный метод игры для получения текущей сцены!
+                if (playerController != null && playerController.TryGetCurrentGameScene(out gameScene) && gameScene != null)
                 {
-                    // Используем найденный тобой официальный метод игры для получения текущей сцены!
-                    if (playerController.TryGetCurrentGameScene(out GameScene currentScene) && currentScene != null)
-                    {
-                        // Проверяем по твоим константам зон, активна ли сейчас зона морга или воскрешения
-                        var resurrectionZone = currentScene.GetWorldZoneById(LazyConsts.WorldZones.RESURRECTION);
-                        var morgueZone = currentScene.GetWorldZoneById(LazyConsts.WorldZones.MORGUE);
+                    // Проверяем активна ли сейчас зона воскрешения
+                    WorldZone worldZoneById = gameScene.GetWorldZoneById("resurrection");
+                    WorldZone worldZoneById2 = gameScene.GetWorldZoneById("morgue");
 
-                        // Если Хранитель стоит в одной из этих зон и она активна на сцене — 
-                        // нагло взламываем проверку активатора, открывая меню!
-                        if ((resurrectionZone != null && resurrectionZone.gameObject != null && resurrectionZone.gameObject.activeInHierarchy) ||
-                            (morgueZone != null && morgueZone.gameObject != null && morgueZone.gameObject.activeInHierarchy))
-                        {
-                            __result = true;
-                            return false; // Блокируем ванильный календарь strictly в морге, спасая Джека на реке
-                        }
+                    // Если Хранитель стоит в одной из этих зон и она активна на сцене — 
+                    // нагло взламываем проверку активатора, открывая меню!
+                    if ((worldZoneById != null && worldZoneById.gameObject != null && worldZoneById.gameObject.activeInHierarchy) || (worldZoneById2 != null && worldZoneById2.gameObject != null && worldZoneById2.gameObject.activeInHierarchy))
+                    {
+                        __result = true;
+                        return false; // Блокируем ванильный календарь strictly в морге
                     }
                 }
             }
             catch (Exception ex)
             {
-                MainPlugin.Log.LogError($"[AnyDoingOnAnyDay] Error in Flow_GetDayNumber Native 1.007 patch: {ex.Message}");
+                MainPlugin.Log.LogError("[AnyDoingOnAnyDay] Error in Flow_GetDayNumber Native patch: " + ex.Message);
             }
-
-            return true; // Вне морга и лаборатории календарь работает строго по ванили, Джек в безопасности!
+            return true;
         }
     }
 
     // --- ПАТЧ 2: БЕСКОНЕЧНАЯ ЭНЕРГИЯ ДЛЯ ВОСКРЕШЕНИЯ (ПО КОНСТАНТАМ ИГРЫ) ---
-    [HarmonyPatch(typeof(PlayerData), "GetRes", new Type[] { typeof(string), typeof(float) })]
+    [HarmonyPatch(typeof(PlayerData), "GetRes", new Type[]{typeof(string),typeof(float)})]
     public class UnlimitedResurrectionPowerPatch
     {
         [HarmonyPostfix]
@@ -59,12 +56,9 @@ namespace AnyDoingOnAnyDay
             if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value || !MainPlugin.Instance.ResurrectionAnytime.Value)
                 return;
 
-            // Используем официальную константу, которую ты откопал в LazyConsts!
-            if (type == LazyConsts.RESURRECTION_HAS_POWER)
+            if (type == "resurrection_has_power" && __result <= 0f)
             {
-                if (__result <= 0) {
-                    __result = 1f; // Всегда полный грозовой заряд для ритуала
-                }
+                __result = 1f;
             }
         }
     }
@@ -78,41 +72,41 @@ namespace AnyDoingOnAnyDay
         {
             if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value || !MainPlugin.Instance.DisableRain.Value) return true;
 
-            try
-            {
-                // ПРОВЕРКА ДНЯ ГРОЗЫ (ДНЯ ЗАВИСТИ) ПО МАССИВУ ALLDAYS
-                var envData = MainGame.Instance?.GameSave?.environmentData;
-                if (envData != null)
-                {
-                    // ИСПРАВЛЕНО: Так как разработчики закрыли ConstDef, мы нативно и без ошибок 
-                    // находим IntValue (индекс) дня "day_envy" прямо в твоем раскопанном массиве AllDays!
-                    int resurrectionDayValue = Array.IndexOf(LazyConsts.ConstDefs.AllDays, "day_envy");
-
-                    // Если индекс по какой-то причине не найдем (-1), ставим дефолтное лорное значение (3)
-                    if (resurrectionDayValue == -1) resurrectionDayValue = 3;
-
-                    // Если текущий день недели совпадает с днем Зависти — пропускаем ванильную погоду без изменений!
-                    if (envData.CurrentDayNumber == resurrectionDayValue)
-                    {
-                        return true;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MainPlugin.Log.LogError($"[WeatherTweaks] Error checking calendar state via AllDays array: {ex.Message}");
-            }
-
             if (stateName != null)
             {
+                try
+                {
+                    // ПРОВЕРКА ДНЯ ГРОЗЫ (ДНЯ ЗАВИСТИ) ПО МАССИВУ ALLDAYS
+                    var envData = MainGame.Instance?.GameSave?.environmentData;
+                    if (envData != null)
+                    {
+                        // ИСПРАВЛЕНО: Так как разработчики закрыли ConstDef, мы нативно и без ошибок 
+                        // находим IntValue (индекс) дня "day_envy" прямо в массиве AllDays!
+                        int resurrectionDayValue = Array.IndexOf(LazyConsts.ConstDefs.AllDays, "day_envy");
+
+                        // Если индекс по какой-то причине не найдем (-1), ставим дефолтное лорное значение (3)
+                        //if (resurrectionDayValue == -1) resurrectionDayValue = 3;
+
+                        // Если текущий день недели совпадает с днем Зависти — пропускаем ванильную погоду без изменений!
+                        if (envData.CurrentDayNumber == resurrectionDayValue)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MainPlugin.Log.LogError($"[WeatherTweaks] Error checking calendar state via AllDays array: {ex.Message}");
+                }
+
                 string lowerState = stateName.ToLower();
 
                 // Если это БУДНИЙ ДЕНЬ (не день грозы), и игра пытается включить плохую погоду...
                 if (
                     lowerState.Contains("rain") ||
+                    lowerState.Contains("strong") ||
                     lowerState.Contains("storm") ||
-                    lowerState.Contains("thunder") ||
-                    lowerState.Contains("shower")
+                    lowerState.Contains("thunder")
                 )
                 {
                     try
@@ -159,7 +153,6 @@ namespace AnyDoingOnAnyDay
                     return true;
                 }
             }
-
             return true;
         }
     }

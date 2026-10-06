@@ -4,27 +4,17 @@ using Object = UnityEngine.Object;
 namespace AnyDoingOnAnyDay
 {
     // --- ПАТЧ 1: ДОСТУПНОСТЬ МОЛИТВЫ В ЛЮБОЙ ДЕНЬ (ИЗОЛИРОВАН) ---
-    [HarmonyPatch(typeof(PlayerData), "GetRes", new Type[] { typeof(string), typeof(float) })]
-    public class PrayerStandPatch
+    [HarmonyPatch(typeof(PrayerStandInteractionHandler), nameof(PrayerStandInteractionHandler.Interact))]
+    public static class SermonAnytimePrefixPatch
     {
-        [HarmonyPostfix]
-        public static void Postfix(string type, float defaultValue, ref float __result)
-        {
-            if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value || !MainPlugin.Instance.SermonAnytime.Value) return;
-
-            // Разблокировка самой кафедры в любой день недели (работает безупречно)
-            if (type == "sermon_ready")
-            {
-                __result = 1f;
-            }
-        }
+        static void Prefix() => MainGame.PlayerData.SetRes("sermon_ready", 1f);
     }
 
     // --- ПАТЧИ 2, 3 И 4: УПРАВЛЕНИЕ ВРЕМЕНЕМ И УМНОЕ ВОССТАНОВЛЕНИЕ БЛАГОДАРНОСТИ (СНИМОК СОСТОЯНИЯ) ---
     [HarmonyPatch(typeof(UIPrayWindowData), "StartCraft")]
     public class FastSermonAndSaveHappinessPatch
     {
-        // Переменная рантайма для хранения снимка благодарности перед молитвой [L1]
+        // Переменная рантайма для хранения снимка благодарности перед молитвой
         private static float _savedHappinessValue = 0f;
 
         [HarmonyPrefix]
@@ -32,15 +22,15 @@ namespace AnyDoingOnAnyDay
         {
             if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value) return;
 
-            // 1. ЗАПОМИНАЕМ ТЕКУЩЕЕ ЗНАЧЕНИЕ БЛАГОДАРНОСТИ ПЕРЕД СЛУЖБОЙ [L1]
+            // 1. ЗАПОМИНАЕМ ТЕКУЩЕЕ ЗНАЧЕНИЕ БЛАГОДАРНОСТИ ПЕРЕД СЛУЖБОЙ
             if (MainPlugin.Instance.NoHappinessChange.Value && MainGame.PlayerData != null)
             {
-                // Считываем честное значение из сейва по официальной константе 1.007 [L1]
-                _savedHappinessValue = MainGame.PlayerData.GetRes(LazyConsts.HAPPINESS_KEY, 0f);
+                // Считываем честное значение из сейва по официальной константе 1.007
+                _savedHappinessValue = MainGame.PlayerData.GetRes("happiness", 0f);
                 MainPlugin.Log.LogInfo($"[AnyDoingOnAnyDay] Captured happiness snapshot before sermon: {_savedHappinessValue}");
             }
 
-            // 2. УСКОРЕНИЕ ВРЕМЕНИ ЧЕРЕЗ UPDATE MANAGER 1.007 [L1]
+            // 2. УСКОРЕНИЕ ВРЕМЕНИ ЧЕРЕЗ UPDATE MANAGER 1.007
             float mult = MainPlugin.Instance.SermonSpeedMultiplier.Value;
             if (mult > 1f)
             {
@@ -57,7 +47,7 @@ namespace AnyDoingOnAnyDay
             }
         }
 
-        // Внутренний метод-геттер для передачи сохранённого снимка в патч завершения службы [L1]
+        // Внутренний метод-геттер для передачи сохранённого снимка в патч завершения службы
         public static float GetSavedHappiness() => _savedHappinessValue;
     }
 
@@ -69,17 +59,17 @@ namespace AnyDoingOnAnyDay
         {
             if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value) return;
 
-            // 1. ВОССТАНАВЛИВАЕМ ЗНАЧЕНИЕ БЛАГОДАРНОСТИ ПОСЛЕ СЛУЖБЫ [L1]
+            // 1. ВОССТАНАВЛИВАЕМ ЗНАЧЕНИЕ БЛАГОДАРНОСТИ ПОСЛЕ СЛУЖБЫ
             if (MainPlugin.Instance.NoHappinessChange.Value && MainGame.PlayerData != null)
             {
                 float snapshotValue = FastSermonAndSaveHappinessPatch.GetSavedHappiness();
 
-                // Насильно возвращаем исходное значение обратно в PlayerData по константе игры! [L1]
-                MainGame.PlayerData.SetRes(LazyConsts.HAPPINESS_KEY, snapshotValue);
+                // Насильно возвращаем исходное значение обратно в PlayerData по константе игры!
+                MainGame.PlayerData.SetRes("happiness", snapshotValue);
                 MainPlugin.Log.LogInfo($"[AnyDoingOnAnyDay] Happiness successfully restored to pre-sermon snapshot: {snapshotValue}");
             }
 
-            // 2. ВОЗВРАТ СКОРОСТИ ВРЕМЕНИ ПОСЛЕ СЛУЖБЫ В UPDATE MANAGER 1.007 [L1]
+            // 2. ВОЗВРАТ СКОРОСТИ ВРЕМЕНИ ПОСЛЕ СЛУЖБЫ В UPDATE MANAGER 1.007
             float mult = MainPlugin.Instance.SermonSpeedMultiplier.Value;
             if (mult > 1f)
             {

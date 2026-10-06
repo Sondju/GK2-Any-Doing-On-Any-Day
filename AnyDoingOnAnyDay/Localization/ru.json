@@ -1,0 +1,27 @@
+{
+  "config.section.general": "1. Общие настройки",
+  "config.section.sermon": "2. Настройки проповеди",
+  "config.section.resurrection": "3. Настройки воскрешения",
+  "config.section.fight": "4. Настройки битв",
+  "config.section.panic": "5. Настройки машины паники",
+  "config.section.dialogue": "6. Настройки диалогов",
+
+  "config.enable.name": "Включить мод",
+  "config.enable.description": "Полностью включить или выключить мод.",
+  "config.sermon_anytime.name": "Проповедь в любое время",
+  "config.sermon_anytime.description": "Вы можете проводить проповедь в любое время.",
+  "config.no_happiness_change.name": "Сохранять благодарность",
+  "config.no_happiness_change.description": "Если включено, благодарность города не будет снижаться после проповеди. Не делает её бесконечной, а только не даёт убывать.",
+  "config.speed_multiplier.name": "Ускорение проповеди",
+  "config.speed_multiplier.desc": "Во сколько раз ускорить ход времени во время молитвы. 1 = Не ускорять.",
+  "config.resurrection_anytime.name": "Воскрешение в любой день",
+  "config.resurrection_anytime.description": "Вы можете воскрешать зомби в любое время.",
+  "config.disable_rain.name": "Отключить дождь",
+  "config.disable_rain.description": "Полностью отключает дождь в игре в обычные дни. В день зависти гроза работает, как обычно.",
+  "config.fight_anytime.name": "Битвы в любой день",
+  "config.fight_anytime.description": "Вы можете участвовать в сражениях в любое время.",
+  "config.panic_anytime.name": "Машина паники в любой день",
+  "config.panic_anytime.description": "Вы можете использовать машину снижения паники в любое время.",
+  "config.dialogue_anytime.name": "Диалоги в любой день",
+  "config.dialogue_anytime.description": "Все сюжетные и обычные диалоги доступны в любое время."
+}

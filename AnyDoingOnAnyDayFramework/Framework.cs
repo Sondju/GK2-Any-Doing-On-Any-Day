@@ -1,19 +1,17 @@
 using BepInEx;
 using GK2.Framework;
-using AnyDoingOnAnyDay; // Ссылка на наш основной автономный плагин
+using AnyDoingOnAnyDay; // Наша прямая ссылка на основной плагин
 
-namespace AnyDoingOnAnyDayFrameworkBridge
+namespace AnyDoingOnAnyDayFramework
 {
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     [BepInDependency(MainPlugin.PluginGuid, BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency("ru.superman4eg.gk2.framework", BepInDependency.DependencyFlags.HardDependency)] // Твоя проверенная зависимость! [L1]
+    [BepInDependency("ru.superman4eg.gk2.framework", BepInDependency.DependencyFlags.HardDependency)]
     public sealed class FrameworkBridgePlugin : BaseUnityPlugin
     {
-        // Уникальный GUID для моста
-        public const string PluginGuid = "com.sondju.AnyDoingOnAnyDay.bridge";
-        // Короткое имя без лишних приписок, чтобы шрифт в меню не мельчал [L1]
+        public const string PluginGuid = "com.sondju.AnyDoingOnAnyDay.framework";
         public const string PluginName = "Any Doing on Any Day";
-        public const string PluginVersion = "1.5.0";
+        public const string PluginVersion = "1.6.0";
 
         private void Awake()
         {
@@ -24,21 +22,19 @@ namespace AnyDoingOnAnyDayFrameworkBridge
                 return;
             }
 
-            // Регистрируем мост во фреймворке, скармливая ему Config основного автономного мода [L1]
             FrameworkApi.RegisterMod(new FrameworkBridge(main), main.Config);
-            Logger.LogInfo("Any Doing on Any Day - Framework Integration Bridge loaded successfully!");
+            Logger.LogInfo("Any Doing on Any Day - Framework Integration Bridge loaded successfully with Native Autolocalization!");
         }
 
         private sealed class FrameworkBridge : Gk2ModBase
         {
             private readonly MainPlugin main;
 
-            // Выставляем frameworkManagesEnabledState: false, чтобы тумблер в меню управлял оригинальным .cfg файлом [L1]
             private readonly Gk2ModMetadata metadata = new Gk2ModMetadata(
-                FrameworkBridgePlugin.PluginGuid,
-                FrameworkBridgePlugin.PluginName,
+                PluginGuid,
+                PluginName,
                 "sondju",
-                FrameworkBridgePlugin.PluginVersion,
+                PluginVersion,
                 "Optional GK2 Mod Framework integration for Any Doing on Any Day.",
                 supportsRuntimeToggle: true,
                 requiresKnownBuild: false,
@@ -50,75 +46,87 @@ namespace AnyDoingOnAnyDayFrameworkBridge
 
             public override void OnRegister(Gk2ModContext context)
             {
-                // Регистрируем ТЕ ЖЕ САМЫЕ Section и Key, что и в основном моде. 
-                // Фреймворк автоматически привяжет их к существующему .cfg файлу! [L1]
+                // Нагло забираем переведенные названия категорий из ядра основного мода!
+                string catGeneral = SimpleLocalizer.Get("config.section.general", "1. General");
+                string catSermon = SimpleLocalizer.Get("config.section.sermon", "2. Sermon");
+                string catRes = SimpleLocalizer.Get("config.section.resurrection", "3. Resurrection");
+                string catFight = SimpleLocalizer.Get("config.section.fight", "4. Fight");
+                string catPanic = SimpleLocalizer.Get("config.section.panic", "5. PanicReduction");
+                string catDialogue = SimpleLocalizer.Get("config.section.dialogue", "6. Dialogue");
 
+                // 1. General
                 context.Settings.AddToggle(
-                    "1. General",
+                    catGeneral,
                     "EnableMod",
                     true,
-                    "Enable Mod",
-                    "Enable or disable the mod completely.");
+                    SimpleLocalizer.Get("config.enable.name", "Enable Mod"),
+                    SimpleLocalizer.Get("config.enable.description", "Enable or disable the mod completely."));
 
+                // 2. Sermon
                 context.Settings.AddToggle(
-                    "2. Sermon",
+                    catSermon,
                     "SermonAnytime",
                     true,
-                    "Sermon Anytime",
-                    "You can pray at any time.");
+                    SimpleLocalizer.Get("config.sermon_anytime.name", "Sermon Anytime"),
+                    SimpleLocalizer.Get("config.sermon_anytime.description", "You can pray at any time."));
 
                 context.Settings.AddToggle(
-                    "2. Sermon",
+                    catSermon,
                     "NoHappinessChange",
                     true,
-                    "Maximize Happiness",
-                    "If true, citizens' happiness won't decrease after sermon.");
+                    SimpleLocalizer.Get("config.no_happiness_change.name", "No Happiness Decrease"),
+                    SimpleLocalizer.Get("config.no_happiness_change.description", "If true, citizens' happiness won't decrease after sermon."));
 
                 context.Settings.AddFloatSlider(
-                    "2. Sermon",
+                    catSermon,
                     "SpeedMultiplier",
                     3f,
                     1f,
                     10f,
-                    "Sermon Speed Multiplier",
-                    "How many times to speed up time during sermon. 1 = Not Use.",
+                    SimpleLocalizer.Get("config.speed_multiplier.name", "Sermon Speed Multiplier"),
+                    SimpleLocalizer.Get("config.speed_multiplier.desc", "How many times to speed up time during sermon. 1 = Not Use."),
                     step: 0.5f);
 
+                // 3. Resurrection
                 context.Settings.AddToggle(
-                    "3. Resurrection",
+                    catRes,
                     "ResurrectionAnytime",
                     true,
-                    "Resurrection Anytime",
-                    "You can resurrect zombies at any time.");
+                    SimpleLocalizer.Get("config.resurrection_anytime.name", "Resurrection Anytime"),
+                    SimpleLocalizer.Get("config.resurrection_anytime.description", "You can resurrect zombies at any time."));
 
                 context.Settings.AddToggle(
-                    "3. Resurrection",
+                    catRes,
                     "DisableRain",
                     true,
-                    "Disable Rain",
-                    "Completely turns off rain. Can be used separately.");
+                    SimpleLocalizer.Get("config.disable_rain.name", "Disable Rain"),
+                    SimpleLocalizer.Get("config.disable_rain.description", "Completely disable rain."));
 
+                // 4. Fight
                 context.Settings.AddToggle(
-                    "4. Fight",
+                    catFight,
                     "FightAnytime",
                     true,
-                    "Fight Anytime",
-                    "You can participate in battles at any time.");
+                    SimpleLocalizer.Get("config.fight_anytime.name", "Fight Anytime"),
+                    SimpleLocalizer.Get("config.fight_anytime.description", "You can participate in battles at any time."));
 
+                // 5. PanicReduction
                 context.Settings.AddToggle(
-                    "5. PanicReduction",
+                    catPanic,
                     "PanicReductionAnytime",
                     true,
-                    "Panic Reduction Anytime",
-                    "You can reduce panic at any time.");
+                    SimpleLocalizer.Get("config.panic_anytime.name", "Panic Reduction Anytime"),
+                    SimpleLocalizer.Get("config.panic_anytime.description", "You can reduce panic at any time."));
 
+                // 6. Dialogue
                 context.Settings.AddToggle(
-                    "6. Dialogue",
+                    catDialogue,
                     "DialogueAnytime",
                     true,
-                    "Dialogue Anytime",
-                    "All dialogs are available at any time.");
+                    SimpleLocalizer.Get("config.dialogue_anytime.name", "Dialogue Anytime"),
+                    SimpleLocalizer.Get("config.dialogue_anytime.description", "All dialogs are available at any time."));
 
+                // Информационная строка статуса
                 context.Settings.AddReadOnly(
                     "Status",
                     "Integration",

@@ -19,8 +19,26 @@
 		<!-- Managed Path -->
 		<ManagedDir>$(GameDir)\GraveyardKeeper2_Data\Managed</ManagedDir>
 		<!-- МО2 Instance Path -->
-		<MO2Dir>F:\_Game Profiles_\Graveyard Keeper 2\mods</MO2Dir>
+		<MO2ModsDir>F:\_Game Profiles_\Graveyard Keeper 2\mods</MO2ModsDir>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<None Remove="Localization\en.json" />
+		<None Remove="Localization\ko.json" />
+		<None Remove="Localization\ru.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="Localization\en.json">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Localization\ko.json">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+		<Content Include="Localization\ru.json">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
 	
 	<ItemGroup>
 		<!-- BepInEx -->
@@ -48,6 +66,12 @@
 		<Reference Include="ParadoxNotion">
 		  <HintPath>$(ManagedDir)\ParadoxNotion.dll</HintPath>
 		</Reference>
+		<Reference Include="ParadoxNotion">
+			<HintPath>$(ManagedDir)\ParadoxNotion.dll</HintPath>
+		</Reference>
+		<Reference Include="Rewired_Core">
+			<HintPath>$(ManagedDir)\Rewired_Core.dll</HintPath>
+		</Reference>
 		<Reference Include="Sirenix.Serialization">
 		  <HintPath>$(ManagedDir)\Sirenix.Serialization.dll</HintPath>
 		</Reference>
@@ -64,12 +88,28 @@
 		<Reference Include="UnityEngine.IMGUIModule">
 		  <HintPath>$(ManagedDir)\UnityEngine.IMGUIModule.dll</HintPath>
 		</Reference>
+		<Reference Include="UnityEngine.PhysicsModule">
+		  <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
+		</Reference>
 		<Reference Include="UnityEngine.UI">
-		  <HintPath>F:\GAMES\Graveyard Keeper 2\GraveyardKeeper2_Data\Managed\UnityEngine.UI.dll</HintPath>
+		  <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
 		</Reference>
 	</ItemGroup>
 	
-	<Target Name="CopyToGameFolder" AfterTargets="Build">
-		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MO2Dir)\Any Doing On Any Day\plugins\" SkipUnchangedFiles="true" />
+	<!-- Автоматическое копирование скомпилированного файла мода в плагины игры -->
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<PropertyGroup>
+			<!-- 1. Расставляем пробелы перед заглавными буквами в очищенном имени (AnyDoingOnAnyDay -> Any Doing on Any Day) -->
+			<ModFolderName>$([System.Text.RegularExpressions.Regex]::Replace($(AssemblyName), '(\B[A-Z])', ' $1'))</ModFolderName>
+
+			<!-- 2. Формируем правильные пути для деплоя -->
+			<TargetModPath>$(MO2ModsDir)\$(ModFolderName)\plugins\$(AssemblyName)</TargetModPath>
+		</PropertyGroup>
+
+		<!-- Копируем саму .dll текущего проекта в plugins -->
+		<Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(TargetModPath)" SkipUnchangedFiles="true" />
+
+		<!-- Копируем чистые JSON для автономного SimpleLocalizer -->
+		<Copy SourceFiles="@(Content)" Condition="'%(Extension)' == '.json'" DestinationFolder="$(TargetModPath)\Localization" SkipUnchangedFiles="true" />
 	</Target>
 </Project>

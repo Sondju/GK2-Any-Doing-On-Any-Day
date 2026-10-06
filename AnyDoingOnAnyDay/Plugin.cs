@@ -2,7 +2,7 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using HarmonyLib;
-using System.Reflection;
+using System;
 using UnityEngine;
 
 namespace AnyDoingOnAnyDay
@@ -12,12 +12,12 @@ namespace AnyDoingOnAnyDay
     {
         public const string PluginGuid = "com.sondju.AnyDoingOnAnyDay";
         public const string PluginName = "Any Doing on Any Day";
-        public const string PluginVersion = "1.5.0";
+        public const string PluginVersion = "1.6.0";
 
         public static MainPlugin Instance { get; private set; }
         public static ManualLogSource Log;
 
-        // Делаем конфиги публичными свойствами, чтобы к ним легко обращались файлы патчей [L1]
+        // Делаем конфиги публичными свойствами, чтобы к ним легко обращались файлы патчей
         public ConfigEntry<bool> EnableMod { get; private set; }
 
         public ConfigEntry<bool> SermonAnytime { get; private set; }
@@ -33,61 +33,157 @@ namespace AnyDoingOnAnyDay
 
         public ConfigEntry<bool> DialogueAnytime { get; private set; }
 
-        //public ConfigEntry<KeyboardShortcut> RespawnNPC { get; private set; }
+        // Переменная-триггер для отслеживания смены языка
+        private string _lastLanguage = "";
+
+        private bool _isFirstSceneLoaded = false;
 
         private void Awake()
         {
             Instance = this;
             Log = Logger;
 
-            // Инициализация стандартных конфигов BepInEx [L1]
-            EnableMod = Config.Bind("1. General", "EnableMod", true,
-                "Enable or disable the mod completely.");
+            // 1. Вытаскиваем переведенные названия категорий из нашего SimpleLocalizer
+            string catGeneral = SimpleLocalizer.Get("config.section.general", "1. General");
+            string catSermon = SimpleLocalizer.Get("config.section.sermon", "2. Sermon");
+            string catRes = SimpleLocalizer.Get("config.section.resurrection", "3. Resurrection");
+            string catFight = SimpleLocalizer.Get("config.section.fight", "4. Fight");
+            string catPanic = SimpleLocalizer.Get("config.section.panic", "5. PanicReduction");
+            string catDialogue = SimpleLocalizer.Get("config.section.dialogue", "6. Dialogue");
 
-            SermonAnytime = Config.Bind("2. Sermon", "SermonAnytime", true,
-                "You can pray at any time.");
+            // 2. Инициализируем конфиги с полной локализацией имен и описаний!
 
-            NoHappinessChange = Config.Bind("2. Sermon", "NoHappinessChange", true,
-                "If true, citizens' happiness won't decrease after sermon.");
+            // 1. General
+            EnableMod = Config.Bind(catGeneral, "EnableMod", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.enable.description", "Enable or disable the mod completely."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.enable.name", "Enable Mod"),
+                    Order = 100
+                }
+            ));
 
-            SermonSpeedMultiplier = Config.Bind("2. Sermon", "SpeedMultiplier", 3f,
-                new ConfigDescription(
-                    "How many times to speed up time during sermon. 1 = Not Use.",
-                    null,
-                    new ConfigurationManagerAttributes { CustomDrawer = DrawSpeedSlider, Order = 0 }
-                )
-            );
+            // 2. Sermon
+            SermonAnytime = Config.Bind(catSermon, "SermonAnytime", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.sermon_anytime.description", "You can pray at any time."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.sermon_anytime.name", "Sermon Anytime"),
+                    Order = 90
+                }
+            ));
 
-            ResurrectionAnytime = Config.Bind("3. Resurrection", "ResurrectionAnytime", true,
-                "You can resurrect zombies at any time.");
+            NoHappinessChange = Config.Bind(catSermon, "NoHappinessChange", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.no_happiness_change.description", "If true, citizens' happiness won't decrease after sermon."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.no_happiness_change.name", "No Happiness Decrease"),
+                    Order = 85
+                }
+            ));
 
-            DisableRain = Config.Bind("3. Resurrection", "DisableRain", true,
-                "Completely disable rain.");
+            // НАШ ХИТРЫЙ СЛАЙДЕР С КАСТОМНЫМ DRAWER
+            SermonSpeedMultiplier = Config.Bind(catSermon, "SpeedMultiplier", 3f, new ConfigDescription(
+                SimpleLocalizer.Get("config.speed_multiplier.desc", "How many times to speed up time during sermon. 1 = Not Use."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    CustomDrawer = DrawSpeedSlider,
+                    DispName = SimpleLocalizer.Get("config.speed_multiplier.name", "Sermon Speed Multiplier"),
+                    Order = 80
+                }
+            ));
 
-            FightAnytime = Config.Bind("4. Fight", "FightAnytime", true,
-                "You can participate in battles at any time.");
+            // 3. Resurrection
+            ResurrectionAnytime = Config.Bind(catRes, "ResurrectionAnytime", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.resurrection_anytime.description", "You can resurrect zombies at any time."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.resurrection_anytime.name", "Resurrection Anytime"),
+                    Order = 70
+                }
+            ));
 
-            PanicReductionAnytime = Config.Bind("5. PanicReduction", "PanicReductionAnytime", true,
-                "You can reduce panic at any time.");
+            DisableRain = Config.Bind(catRes, "DisableRain", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.disable_rain.description", "Completely disable rain."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.disable_rain.name", "Disable Rain"),
+                    Order = 65
+                }
+            ));
 
-            DialogueAnytime = Config.Bind("6. Dialogue", "DialogueAnytime", true,
-                "All dialogs are available at any time.");
+            // 4. Fight
+            FightAnytime = Config.Bind(catFight, "FightAnytime", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.fight_anytime.description", "You can participate in battles at any time."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.fight_anytime.name", "Fight Anytime"),
+                    Order = 60
+                }
+            ));
 
-            /*RespawnNPC = Config.Bind(
-                "Hotkeys",
-                "RespawnNPC",
-                new KeyboardShortcut(KeyCode.F10), // Наш дефолтный F10, обёрнутый в структуру
-                "Press this key combination in-game to force respawn and fix missing NPCs (like Jack)."
-            );*/
+            // 5. PanicReduction
+            PanicReductionAnytime = Config.Bind(catPanic, "PanicReductionAnytime", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.panic_anytime.description", "You can reduce panic at any time."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.panic_anytime.name", "Panic Reduction Anytime"),
+                    Order = 50
+                }
+            ));
 
-            // Автоматически ищет и применяет все патчи из ВСЕХ создаваемых нами файлов! [L1]
+            // 6. Dialogue
+            DialogueAnytime = Config.Bind(catDialogue, "DialogueAnytime", true, new ConfigDescription(
+                SimpleLocalizer.Get("config.dialogue_anytime.description", "All dialogs are available at any time."),
+                null,
+                new ConfigurationManagerAttributes
+                {
+                    DispName = SimpleLocalizer.Get("config.dialogue_anytime.name", "Dialogue Anytime"),
+                    Order = 40
+                }
+            ));
+
+            // Автоматически ищет и применяет все патчи из ВСЕХ создаваемых нами файлов!
             var harmony = new Harmony(PluginGuid);
-            harmony.PatchAll(Assembly.GetExecutingAssembly());
 
-            Log.LogInfo($"{PluginName} loaded successfully in standalone mode!");
+            var patchTypes = new[]
+            {
+                typeof(DialogueAnytimePatch),
+                typeof(FightAnytime_Patch),
+                typeof(PanicReductionAnytimePatch),
+                typeof(SermonAnytimePrefixPatch),
+                typeof(ResurrectionAnytimePatch),
+                typeof(UnlimitedResurrectionPowerPatch),
+                typeof(WeatherAntiRainShieldPatch),
+                typeof(FastSermonAndSaveHappinessPatch),
+                typeof(FastSermonEndAndRestoreHappinessPatch),
+            };
+
+            foreach (var pt in patchTypes)
+            {
+                try
+                {
+                    harmony.CreateClassProcessor(pt).Patch();
+                    Logger.LogWarning($"Патч применён: {pt.Name}");
+                }
+                catch (Exception e)
+                {
+                    Logger.LogError($"Патч {pt.Name} НЕ применился: {e.GetType().Name}: {e.Message}");
+                }
+            }
+
+            //harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
 
-        // ОТРИСОВЩИК ПОЛЗУНКОВ ДЛЯ STANDALONE-РЕЖИМА [L1]
+        // ОТРИСОВЩИК ПОЛЗУНКОВ ДЛЯ STANDALONE-РЕЖИМА
         private static void DrawSpeedSlider(ConfigEntryBase entry)
         {
             if (entry is not ConfigEntry<float> configEntry) return;
@@ -111,9 +207,10 @@ namespace AnyDoingOnAnyDay
         }
     }
 
-    // Класс заглушки для рефлексии Configuration Manager [L1]
+    // Класс заглушки для рефлексии Configuration Manager
     public class ConfigurationManagerAttributes
     {
+        public string DispName;
         public System.Action<ConfigEntryBase> CustomDrawer;
         public int? Order;
         public bool? ReadOnly;

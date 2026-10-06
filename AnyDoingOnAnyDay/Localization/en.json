@@ -1,0 +1,27 @@
+{
+  "config.section.general": "1. General Settings",
+  "config.section.sermon": "2. Sermon Settings",
+  "config.section.resurrection": "3. Resurrection Settings",
+  "config.section.fight": "4. Fight Settings",
+  "config.section.panic": "5. Panic Reduction Settings",
+  "config.section.dialogue": "6. Dialogue Settings",
+
+  "config.enable.name": "Enable Mod",
+  "config.enable.description": "Enable or disable mod completely.",
+  "config.sermon_anytime.name": "Sermon Anytime",
+  "config.sermon_anytime.description": "You can pray at any time.",
+  "config.no_happiness_change.name": "No Happiness Decrease",
+  "config.no_happiness_change.description": "If true, citizens' happiness won't decrease after sermon.",
+  "config.speed_multiplier.name": "Sermon Speed Multiplier",
+  "config.speed_multiplier.desc": "How many times to speed up time during sermon. 1 = Not Use.",
+  "config.resurrection_anytime.name": "Resurrection Anytime",
+  "config.resurrection_anytime.description": "You can resurrect zombies at any time.",
+  "config.disable_rain.name": "Disable Rain",
+  "config.disable_rain.description": "Completely shuts off rain on normal days. On day of envy, storm works as usual.",
+  "config.fight_anytime.name": "Fight Anytime",
+  "config.fight_anytime.description": "You can participate in battles at any time.",
+  "config.panic_anytime.name": "Panic Reduction Anytime",
+  "config.panic_anytime.description": "You can reduce panic at any time.",
+  "config.dialogue_anytime.name": "Dialogue Anytime",
+  "config.dialogue_anytime.description": "All dialogs are available at any time."
+}

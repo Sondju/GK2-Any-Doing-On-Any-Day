@@ -8,7 +8,7 @@ namespace AnyDoingOnAnyDay
     // --- ПАТЧ: ОПТИМИЗИРОВАННОЕ ОТВЯЗЫВАНИЕ ДИАЛОГОВ ОТ ОГРАНИЧЕНИЙ 1.008 ---
     // =========================================================================
     [HarmonyPatch(typeof(UIMultiAnswerOption), "ShowIcons")]
-    public class CleanDialogueDaysPostfixPatch
+    public class DialogueAnytimePatch
     {
         [HarmonyPostfix] // Пересаживаем на Постфикс для 100% защиты от багов и конфликтов!
         public static void Postfix(UIMultiAnswerOption __instance)

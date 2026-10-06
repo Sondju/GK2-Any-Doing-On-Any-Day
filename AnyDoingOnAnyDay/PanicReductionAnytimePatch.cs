@@ -1,70 +1,126 @@
 ﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
-using System.Reflection.Emit;
+using System.Reflection;
+using UnityEngine;
+using LazyBearTechnology;
 
 namespace AnyDoingOnAnyDay
 {
-    // --- УЛЬТИМАТИВНЫЙ ТРАНСПИЛЯТОР ПОД 1.007: МАШИНА ПАНИКИ В ЛЮБОЙ ДЕНЬ ---
+    // --- НАДЁЖНЫЙ ПАТЧ ДЛЯ 1.008: МАШИНА ПАНИКИ В ЛЮБОЙ ДЕНЬ БЕЗ ТРАНСПИЛЯТОРОВ ---
     [HarmonyPatch(typeof(PanicReductionMachineInteractionHandler), "Interact")]
-    public static class PanicReductionMachinePatch
+    public static class PanicReductionAnytimePatch
     {
-        [HarmonyTranspiler]
-        public static IEnumerable<CodeInstruction> Transpiler(IEnumerable<CodeInstruction> instructions)
+        [HarmonyPrefix]
+        public static bool Prefix(PanicReductionMachineInteractionHandler __instance, PlayerController interactor, ref bool __result)
         {
             if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value || !MainPlugin.Instance.PanicReductionAnytime.Value)
-                return instructions; // Если мод выключен, отдаем оригинальный код без изменений
+                return true; // Если мод выключен, работает оригинальная логика игры
 
-            var codes = new List<CodeInstruction>(instructions);
-
-            // Ищем место, где игра вызывает дефинишен дня "day_gluttony"
-            int targetIndex = -1;
-            for (int i = 0; i < codes.Count; i++)
+            try
             {
-                // Находим строчку, которая загружает в память имя дня чревоугодия
-                if (codes[i].opcode == OpCodes.Ldstr && (string)codes[i].operand == "day_gluttony")
+                // 1. Выполняем базовый метод WGOInteractionHandlerBase.Interact(interactor)
+                var baseInteract = AccessTools.Method(typeof(WGOInteractionHandlerBase), "Interact");
+                if (baseInteract != null && (bool)baseInteract.Invoke(__instance, new object[] { interactor }))
                 {
-                    targetIndex = i;
-                    break;
+                    __result = true;
+                    return false;
                 }
-            }
 
-            // Если нашли эту проверку дня недели — ювелирно вырезаем её из инструкций игры! [L1]
-            if (targetIndex != -1)
-            {
-                try
+                // ВЗЛОМ ОШИБКИ УРОВНЯ ЗАЩИТЫ: Достаем приватное/защищенное поле assignedCraftComponent
+                FieldInfo craftCompField = AccessTools.Field(typeof(PanicReductionMachineInteractionHandler), "assignedCraftComponent");
+                CraftComponent assignedCraftComponent = craftCompField?.GetValue(__instance) as CraftComponent;
+
+                // Достаем приватное поле assignedWgo из базового класса
+                FieldInfo assignedWgoField = AccessTools.Field(typeof(WGOInteractionHandlerBase), "assignedWgo")
+                                             ?? AccessTools.Field(__instance.GetType(), "assignedWgo");
+                object assignedWgoObj = assignedWgoField?.GetValue(__instance);
+
+                if (assignedCraftComponent == null || assignedWgoObj == null)
+                    return true;
+
+                // Приводим объект Wgo к его типу и достаем WgoData
+                PropertyInfo dataProperty = AccessTools.Property(assignedWgoObj.GetType(), "Data");
+                WgoData wgoData = dataProperty?.GetValue(assignedWgoObj) as WgoData;
+                if (wgoData == null) return true;
+
+                // Ванильная проверка 1: Если активен процесс уничтожения крафта — блокируем клик (как по ванили)
+                if (assignedCraftComponent.IsDestroyingCraftActive)
                 {
-                    // Нам нужно вырезать ветку проверки от получения ConstDef до ухода в ветку return false [L1]
-                    // Чтобы не высчитывать точные смещения IL-кода, мы просто находим ближайший условный переход (Brfalse / Brtrue)
-                    // и заменяем вызов Bubble.Talk на Nop (пустую операцию), а условный переход — на принудительный пропуск!
+                    __result = false;
+                    return false;
+                }
 
-                    // Самый элегантный способ взлома этой проверки в 1.007:
-                    // Находим инструкцию ветвления, которая идет сразу после проверки дня недели.
-                    // Вместо условного перехода (если день НЕ равен) мы заставляем её ВСЕГДА думать, что день равен! [L1]
-                    for (int j = targetIndex; j < codes.Count; j++)
+                // --- МЫ ОФИЦИАЛЬНО ПЕРЕШАГНУЛИ ПРОВЕРКУ "day_gluttony"! ---
+                // Блок с Bubble.Talk и return false полностью проигнорирован.
+
+                bool wasPlayerSetAsWorker = false;
+                if (wgoData.Worker == null)
+                {
+                    wgoData.TrySetWorker(interactor, null);
+                    wasPlayerSetAsWorker = true;
+                }
+
+                // Вытаскиваем метод OnCraftPressed через рефлексию (он приватный в обработчике)
+                MethodInfo onCraftPressedMethod = AccessTools.Method(__instance.GetType(), "OnCraftPressed", new Type[] { typeof(CraftElement), typeof(bool) });
+
+                // Логика А: Если у машины доступен ровно 1 рецепт крафта
+                if (assignedCraftComponent.CraftsIn.Count == 1)
+                {
+                    CraftDef craftDef = (CraftDef)assignedCraftComponent.CraftsIn[0];
+                    var window = LazyUI.GetWindow<UISingleCraftWindow>();
+
+                    // Создаем делегат для обработки нажатия крафта
+                    Action<CraftDef, List<NeedItemData>, CraftParamsData, int> startCraftAction = (def, items, paramsData, count) =>
                     {
-                        if (codes[j].opcode == OpCodes.Bne_Un || codes[j].opcode == OpCodes.Bne_Un_S ||
-                            codes[j].opcode == OpCodes.Brfalse || codes[j].opcode == OpCodes.Brfalse_S ||
-                            codes[j].opcode == OpCodes.Brtrue || codes[j].opcode == OpCodes.Brtrue_S)
+                        CraftElement craftElement = new CraftElement(def.id, count, items, paramsData);
+                        craftElement.DoBeforeStartCalculations(wgoData);
+
+                        if (craftElement.Definition.isFuelCraft)
                         {
-                            // Подменяем инструкцию перехода на Nop (пустышку). 
-                            // Теперь движок игры физически пролетит мимо блока Bubble.Talk и "return false;" [L1]
-                            // и сразу перейдет к открытию окон крафта, как будто сегодня день чревоугодия!
-                            codes[j].opcode = OpCodes.Nop;
-                            codes[j].operand = null;
-
-                            MainPlugin.Log.LogInfo("[AnyDoingOnAnyDay] Panic Machine day check successfully bypassed via Transpiler!");
-                            break;
+                            ItemDef itemData = GameBalance.Me.GetData<ItemDef>(craftElement.Definition.addItemsToWgoOnFinish.chanceOutputItems[0].id);
+                            int num = Mathf.FloorToInt((float)wgoData.Inventory.Data.CanAddItemCountToInventory(itemData, 99999, true, null, false) / (float)craftElement.PreToWgoOnFinishItems[0].count);
+                            craftElement.Count = ((count > num) ? num : count);
                         }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MainPlugin.Log.LogError($"[AnyDoingOnAnyDay] Panic Machine Transpiler failed: {ex.Message}");
-                }
-            }
+                        onCraftPressedMethod?.Invoke(__instance, new object[] { craftElement, true });
+                    };
 
-            return codes;
+                    UISingleCraftWindowData windowData = new UISingleCraftWindowData(wgoData, craftDef, null, startCraftAction);
+
+                    window.Open(windowData, delegate (UIBaseCraftSelectionWindowData _)
+                    {
+                        if (wasPlayerSetAsWorker) wgoData.ClearWorker();
+                    });
+
+                    __result = true;
+                    return false;
+                }
+
+                // Логика Б: Если рецептов несколько — открываем стандартное окно выбора крафтов
+                var window2 = LazyUI.GetWindow<UICraftWindow>();
+
+                UIBaseCraftWindowData windowData2 = new UIBaseCraftWindowData(assignedWgoObj as Wgo, delegate (CraftElement ce)
+                {
+                    onCraftPressedMethod?.Invoke(__instance, new object[] { ce, false });
+                }, delegate (CraftElement ce)
+                {
+                    onCraftPressedMethod?.Invoke(__instance, new object[] { ce, true });
+                });
+
+                window2.Open(windowData2, delegate (UIBaseCraftWindowData _)
+                {
+                    if (wasPlayerSetAsWorker) wgoData.ClearWorker();
+                });
+
+                MainPlugin.Log.LogInfo("[AnyDoingOnAnyDay] Успешно перешагнули проверку Дня Чревоугодия для Машины Паники!");
+                __result = true;
+                return false; // Полностью блокируем ванильный метод, облачко ошибки не появится!
+            }
+            catch (Exception ex)
+            {
+                MainPlugin.Log.LogError($"[AnyDoingOnAnyDay] Critical error in Panic Machine Prefix: {ex.Message}");
+                return true; // В случае непредвиденного сбоя откатываемся на нативный код игры
+            }
         }
     }
 }
