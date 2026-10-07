@@ -84,13 +84,9 @@
 			
 			<!-- 3. Формируем правильные пути для деплоя -->
 			<TargetModPath>$(MO2ModsDir)\$(ModFolderName)\plugins\$(CleanName)</TargetModPath>
-			<TargetBridgePath>$(MO2ModsDir)\$(ModFolderName)\plugins\GK2.Framework\Localization\com.sondju.$(CleanName)</TargetBridgePath>
 		</PropertyGroup>
 
 		<!-- Копируем саму .dll текущего проекта в plugins -->
 		<Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" DestinationFolder="$(TargetModPath)" SkipUnchangedFiles="true" />
-
-		<!-- Если это проект фреймворка (AnyDoingOnAnyDayFramework): копируем и превращаем в .json.bridge -->
-		<Copy SourceFiles="@(Content)" Condition="'%(Extension)' == '.json'" DestinationFolder="$(TargetBridgePath)" SkipUnchangedFiles="true" />
 	</Target>
 </Project>
