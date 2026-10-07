@@ -176,7 +176,10 @@ namespace AnyDoingOnAnyDay
                 }
                 catch (Exception e)
                 {
-                    Logger.LogError($"Патч {pt.Name} НЕ применился: {e.GetType().Name}: {e.Message}");
+                    Logger.LogError(
+                        $"Патч {pt.Name} НЕ применился: {e.GetType().Name}: {e.Message}\n" +
+                        $"Stack trace: {e.StackTrace}"
+                    );
                 }
             }
 
