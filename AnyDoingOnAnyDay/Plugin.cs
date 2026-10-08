@@ -12,7 +12,7 @@ namespace AnyDoingOnAnyDay
     {
         public const string PluginGuid = "com.sondju.AnyDoingOnAnyDay";
         public const string PluginName = "Any Doing on Any Day";
-        public const string PluginVersion = "1.6.0";
+        public const string PluginVersion = "1.7.0";
 
         public static MainPlugin Instance { get; private set; }
         public static ManualLogSource Log;

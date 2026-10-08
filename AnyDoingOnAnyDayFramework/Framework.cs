@@ -11,7 +11,7 @@ namespace AnyDoingOnAnyDayFramework
     {
         public const string PluginGuid = "com.sondju.AnyDoingOnAnyDay.framework";
         public const string PluginName = "Any Doing on Any Day";
-        public const string PluginVersion = "1.6.0";
+        public const string PluginVersion = "1.7.0";
 
         private void Awake()
         {

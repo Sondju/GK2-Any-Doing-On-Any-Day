@@ -77,6 +77,10 @@
 		</Reference>
 		
 		<!-- Unity -->
+		<Reference Include="Unity.TextMeshPro">
+			<HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
 		<Reference Include="UnityEngine">
 			<HintPath>$(ManagedDir)\UnityEngine.dll</HintPath>
 			<Private>false</Private>
