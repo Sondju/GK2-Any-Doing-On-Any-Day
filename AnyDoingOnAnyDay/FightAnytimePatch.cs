@@ -1,77 +1,94 @@
 ﻿using HarmonyLib;
 using System;
+using System.Collections.Generic;
 
 namespace AnyDoingOnAnyDay
 {
-    // --- ПАТЧ ДЛЯ ВЕРСИИ 1.007: ЗАПУСК БИТВ В ЛЮБОЙ ДЕНЬ НЕДЕЛИ (ИСПРАВЛЕННЫЙ) ---
     [HarmonyPatch(typeof(GameLogicsSystem), "CustomUpdate")]
-    public class FightAnytime_Patch
+    public static class FightAnytime_Patch
     {
+        // Кэш на Definition: считаем один раз, дальше только читаем
+        private static readonly Dictionary<GameLogicDef, CachedDef> _cache = new();
+
+        private sealed class CachedDef
+        {
+            public bool IsFight;
+            public int FixedDay = int.MinValue;
+        }
+
         [HarmonyPrefix]
         public static bool Prefix(GameLogicsSystem __instance, float deltaTime)
         {
-            if (MainPlugin.Instance == null || !MainPlugin.Instance.EnableMod.Value || !MainPlugin.Instance.FightAnytime.Value)
+            var plugin = MainPlugin.Instance;
+            if (plugin == null || !plugin.EnableMod.Value || !plugin.FightAnytime.Value)
                 return true;
+
+            var save = MainGame.Instance?.GameSave;
+            if (save?.gameLogicSystemData?.gameLogics == null || save.environmentData == null)
+                return true;
+
+            var gameLogicsList = save.gameLogicSystemData.gameLogics;
+            var env = save.environmentData;
 
             try
             {
-                // ИСПРАВЛЕНО: Вместо приватного __instance.Data берем данные напрямую из сохранения игры!
-                if (MainGame.Instance?.GameSave?.gameLogicSystemData?.gameLogics == null || MainGame.Instance?.GameSave?.environmentData == null)
-                    return true;
-
-                var gameLogicsList = MainGame.Instance.GameSave.gameLogicSystemData.gameLogics;
-                EnvironmentData environmentData = MainGame.Instance.GameSave.environmentData;
-
-                foreach (GameLogicData gameLogicData in gameLogicsList)
+                foreach (GameLogicData data in gameLogicsList)
                 {
-                    if (gameLogicData == null) continue;
-                    GameLogicDef definition = gameLogicData.Definition;
+                    if (data == null) continue;
+                    GameLogicDef definition = data.Definition;
                     if (definition == null) continue;
 
-                    // КРИТИЧЕСКИЙ ФИЛЬТР: Проверяем, относится ли этот скрипт к битвам
-                    bool isFightLogic = definition.id.Contains("fight") || definition.id.Contains("battle") || definition.id.Contains("wave");
-
-                    // Разветвление логики IL_4D (Периодические / Кастомные ивенты)
-                    if (gameLogicData is CustomGameLogicData || definition.gameLogicStartType == GameLogicStartType.Period)
+                    // Достаём из кэша; string.Contains и ConstDef.Get выполняются ровно один раз за жизнь определения
+                    if (!_cache.TryGetValue(definition, out var cached))
                     {
-                        if (environmentData.Day > gameLogicData.execDay || (environmentData.Day == gameLogicData.execDay && environmentData.TimeOfDay >= gameLogicData.execTime))
+                        cached = new CachedDef
                         {
-                            // Если это битва — на лету подтягиваем отставший/багнутый execDay к текущему дню
-                            if (isFightLogic && gameLogicData.execDay > environmentData.Day)
-                            {
-                                gameLogicData.execDay = environmentData.Day;
-                            }
+                            IsFight = definition.id.Contains("fight")
+                                   || definition.id.Contains("battle")
+                                   || definition.id.Contains("wave"),
+                            FixedDay = definition.gameLogicStartType == GameLogicStartType.Day
+                                ? ConstDef.Get(definition.dayNumber).IntValue
+                                : int.MinValue
+                        };
+                        _cache[definition] = cached;
+                    }
 
-                            gameLogicData.TryExecute();
+                    // Разветвление IL_4D (периодические / кастомные ивенты)
+                    if (data is CustomGameLogicData || definition.gameLogicStartType == GameLogicStartType.Period)
+                    {
+                        if (env.Day > data.execDay || (env.Day == data.execDay && env.TimeOfDay >= data.execTime))
+                        {
+                            if (cached.IsFight && data.execDay > env.Day)
+                                data.execDay = env.Day;
 
-                            if (isFightLogic && gameLogicData.execDay <= environmentData.Day)
-                            {
-                                gameLogicData.execDay = environmentData.Day + 1; // Сдвигаем на 1 день вперед
-                            }
+                            data.TryExecute();
+
+                            if (cached.IsFight && data.execDay <= env.Day)
+                                data.execDay = env.Day + 1;
                         }
                     }
 
-                    // Разветвление логики IL_7D (Ежедневные/Фиксированные ивенты)
+                    // Разветвление IL_7D (ежедневные/фиксированные ивенты)
                     if (definition.gameLogicStartType == GameLogicStartType.Day)
                     {
-                        // УМНЫЙ ОБХОД ДЛЯ 1.007:
-                        // Если это битва, мы ВЫРЕЗАЕМ проверку CurrentDayNumber == dayNumber
-                        bool dayConditionMet = isFightLogic || (environmentData.CurrentDayNumber == ConstDef.Get(definition.dayNumber).IntValue);
-
-                        if (dayConditionMet && environmentData.TimeOfDay >= definition.dayTime && environmentData.Day > gameLogicData.lastExecDay)
+                        // Дешёвые проверки вперёд: если день уже отработан — до ConstDef и фильтра дело не доходит
+                        if (env.Day > data.lastExecDay
+                            && env.TimeOfDay >= definition.dayTime
+                            && (cached.IsFight || env.CurrentDayNumber == cached.FixedDay))
                         {
-                            gameLogicData.lastExecDay = environmentData.Day;
-                            gameLogicData.TryExecute();
+                            data.lastExecDay = env.Day;
+                            data.TryExecute();
                         }
                     }
                 }
 
-                return false; // Полностью заменяем метод своим оптимизированным кодом, гасим ванильный апдейт
+                return false;
             }
             catch (Exception ex)
             {
-                MainPlugin.Log.LogError($"[AnyDoingOnAnyDay] CustomUpdate 1.007 bypass error: {ex.Message}");
-                return true; // В случае сбоя откатываемся на ванильное поведение игры
+                // Логируем исключение целиком — с типом и стеком, а не только Message
+                MainPlugin.Log.LogError($"[AnyDoingOnAnyDay] CustomUpdate 1.007 bypass error: {ex}");
+                return true;
             }
         }
     }
