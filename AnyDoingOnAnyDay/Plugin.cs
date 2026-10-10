@@ -172,12 +172,12 @@ namespace AnyDoingOnAnyDay
                 try
                 {
                     harmony.CreateClassProcessor(pt).Patch();
-                    Logger.LogWarning($"Патч применён: {pt.Name}");
+                    Logger.LogMessage($"{pt.Name} correct patched");
                 }
                 catch (Exception e)
                 {
                     Logger.LogError(
-                        $"Патч {pt.Name} НЕ применился: {e.GetType().Name}: {e.Message}\n" +
+                        $"{pt.Name} NOT patched: {e.GetType().Name}: {e.Message}\n" +
                         $"Stack trace: {e.StackTrace}"
                     );
                 }
