@@ -56,8 +56,13 @@
 			<HintPath>$(ManagedDir)\Assembly-CSharp.dll</HintPath>
 			<Private>false</Private>
 		</Reference>
+		<Reference Include="AstarPathfindingProject">
+		  <HintPath>$(ManagedDir)\AstarPathfindingProject.dll</HintPath>
+			<Private>false</Private>
+		</Reference>
 		<Reference Include="FlowCanvas">
 		  <HintPath>$(ManagedDir)\FlowCanvas.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 		<Reference Include="LazyBearTechnology">
 			<HintPath>$(ManagedDir)\LazyBearTechnology.dll</HintPath>
@@ -65,15 +70,19 @@
 		</Reference>
 		<Reference Include="ParadoxNotion">
 		  <HintPath>$(ManagedDir)\ParadoxNotion.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 		<Reference Include="ParadoxNotion">
 			<HintPath>$(ManagedDir)\ParadoxNotion.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 		<Reference Include="Rewired_Core">
 			<HintPath>$(ManagedDir)\Rewired_Core.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 		<Reference Include="Sirenix.Serialization">
 		  <HintPath>$(ManagedDir)\Sirenix.Serialization.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 		
 		<!-- Unity -->
@@ -91,12 +100,15 @@
 		</Reference>
 		<Reference Include="UnityEngine.IMGUIModule">
 		  <HintPath>$(ManagedDir)\UnityEngine.IMGUIModule.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 		<Reference Include="UnityEngine.PhysicsModule">
 		  <HintPath>$(ManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 		<Reference Include="UnityEngine.UI">
 		  <HintPath>$(ManagedDir)\UnityEngine.UI.dll</HintPath>
+			<Private>false</Private>
 		</Reference>
 	</ItemGroup>
 	

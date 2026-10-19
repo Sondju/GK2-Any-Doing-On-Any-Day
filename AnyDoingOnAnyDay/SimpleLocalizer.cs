@@ -1,5 +1,4 @@
 ﻿using Rewired.Utils.Libraries.TinyJson;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -11,21 +10,8 @@ namespace AnyDoingOnAnyDay
         // Храним ВСЕ переводы в двумерном словаре: [язык][ключ] = перевод
         private static readonly Dictionary<string, Dictionary<string, string>> AllTranslations = new Dictionary<string, Dictionary<string, string>>();
 
-        // Кэшируем системный язык один раз при запуске, чтобы не дергать культуру постоянно
-        private static readonly string SystemLanguageCode;
-
         static SimpleLocalizer()
         {
-            // Ультимативный дефолт: сразу берем чистокровный двухбуквенный код ОС Windows (ru, ko, en)
-            try
-            {
-                SystemLanguageCode = System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName.ToLower();
-            }
-            catch
-            {
-                SystemLanguageCode = "en";
-            }
-
             try
             {
                 string directory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -56,16 +42,44 @@ namespace AnyDoingOnAnyDay
             catch { }
         }
 
-        // Главный метод выдачи перевода — теперь работает со скоростью света
+        // Внутренний метод динамического определения текущего активного языка игры
+        private static string GetCurrentGameLanguage()
+        {
+            try
+            {
+                // ИСПРАВЛЕНО ДЛЯ 1.010: Нативно шпионим за движком локализации LazyBearTechnology!
+                // Проверяем, инициализирован ли базовый класс языков игры LLBase
+                if (LazyBearTechnology.LLBase.CurrentLang != null && !string.IsNullOrEmpty(LazyBearTechnology.LLBase.CurrentLang))
+                {
+                    // Возвращает чистые двухбуквенные коды игры: "ru", "en", "ko", "de" и т.д.
+                    return LazyBearTechnology.LLBase.CurrentLang.ToLower();
+                }
+            }
+            catch { }
+            return "en";
+        }
+
+        // Главный метод выдачи перевода — теперь динамический и неуязвимый
         public static string Get(string key, string fallback = "")
         {
-            // Ищем строку в системном языке Windows
-            if (AllTranslations.TryGetValue(SystemLanguageCode, out var langDict) && langDict.TryGetValue(key, out string text))
+            // 1. Нативно шпионим за статической строкой игры 1.010, которую ты нашел!
+            string currentGameLang = "en";
+            try
+            {
+                if (!string.IsNullOrEmpty(LazyBearTechnology.LLBase.CurrentLang))
+                {
+                    currentGameLang = LazyBearTechnology.LLBase.CurrentLang.ToLower();
+                }
+            }
+            catch { }
+
+            // 2. Ищем строку в текущем активном языке игры
+            if (AllTranslations.TryGetValue(currentGameLang, out var langDict) && langDict.TryGetValue(key, out string text))
             {
                 return text;
             }
 
-            // Запасной план: английский оригинал
+            // 3. Запасной план: Английский оригинал из JSON
             if (AllTranslations.TryGetValue("en", out var enDict) && enDict.TryGetValue(key, out string enText))
             {
                 return enText;

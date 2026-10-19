@@ -151,6 +151,13 @@ namespace AnyDoingOnAnyDay
                 }
             ));
 
+            // Подписываемся на нативное событие смены языка игры
+            try
+            {
+                GameSettings.OnLanguageChanged += OnGameLanguageChanged;
+            }
+            catch { }
+
             // Автоматически ищет и применяет все патчи из ВСЕХ создаваемых нами файлов!
             var harmony = new Harmony(PluginGuid);
 
@@ -182,8 +189,6 @@ namespace AnyDoingOnAnyDay
                     );
                 }
             }
-
-            //harmony.PatchAll(Assembly.GetExecutingAssembly());
         }
 
         // ОТРИСОВЩИК ПОЛЗУНКОВ ДЛЯ STANDALONE-РЕЖИМА
@@ -207,6 +212,20 @@ namespace AnyDoingOnAnyDay
             }
             GUILayout.Label(configEntry.Value.ToString("F1"), GUILayout.Width(40));
             GUILayout.EndHorizontal();
+        }
+
+        // Абсолютно чистый и безопасный обработчик смены языка
+        private void OnGameLanguageChanged()
+        {
+            Log.LogInfo("[AnyDay] Обнаружена смена языка! Нативно перезагружаем конфигурацию BepInEx...");
+            try
+            {
+                // Самый безопасный метод: заставляем BepInEx перечитать конфиг.
+                // Это принудительно вызовет твои геттеры SimpleLocalizer.Get() 
+                // под новый язык, и MSM обновит текст сам, без нашего вмешательства в его код!
+                Config.Reload();
+            }
+            catch { }
         }
     }
 
