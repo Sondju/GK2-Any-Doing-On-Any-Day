@@ -158,7 +158,7 @@ namespace AnyDoingOnAnyDay
             }
             catch { }
 
-            // Автоматически ищет и применяет все патчи из ВСЕХ создаваемых нами файлов!
+            // Если один патч отвалится, другие продолжат работу, вместо падения всего плагина
             var harmony = new Harmony(PluginGuid);
 
             var patchTypes = new[]
